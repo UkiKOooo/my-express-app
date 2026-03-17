@@ -1,40 +1,68 @@
 const express = require('express');
+const { Pool } = require('pg');
+require('dotenv').config();
+
 const app = express();
-const port = 3000;
+app.use(express.json());
 
-// Header style for all pages
-const header = '<style>body{font-family:sans-serif; background:#f4f4f4; padding:50px; text-align:center;} .container{background:white; padding:30px; border-radius:10px; display:inline-block; border:1px solid #ddd;}</style>';
 
-// Homepage
-app.get('/', (req, res) => {
-    res.send(`${header}<div class="container"><h1>Welcome to My Express App!</h1><p><a href="/about">About</a> | <a href="/contact">Contact</a></p></div>`);
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
 });
 
-// About Page
-app.get('/about', (req, res) => {
-    res.send(`${header}<div class="container"><h1>About Page</h1><p>This is a simple Express application for learning purposes.</p><p><a href="/">Back Home</a></p></div>`);
-});
 
-// Contact Page
-app.get('/contact', (req, res) => {
-    const { name, message } = req.query;
-    if (name) {
-        // Output format required by your assignment
-        res.send(`${header}<div class="container"><h1>Success!</h1><p>Thank you, ${name}! We have received your message: ${message}.</p><p><a href="/contact">Back to Form</a></p></div>`);
-    } else {
-        res.send(`${header}<div class="container">
-            <h1>Contact Page</h1>
-            <form action="/contact" method="GET">
-                <p>Name: <input type="text" name="name" required></p>
-                <p>Email: <input type="email" name="email" required></p>
-                <p>Message: <input type="text" name="message"></p>
-                <button type="submit">Submit</button>
-            </form>
-            <p><a href="/">Back Home</a></p>
-        </div>`);
+app.get('/api/v1/tasks', async (req, res) => {
+  try {
+    const { status } = req.query;
+    let query = 'SELECT * FROM tasks';
+    let params = [];
+    if (status) {
+      query += ' WHERE status = $1';
+      params.push(status);
     }
+    const result = await pool.query(query, params);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.listen(port, () => {
-    console.log(`Server started! View it here: http://localhost:${port}`);
+
+app.post('/api/v1/tasks', async (req, res) => {
+  try {
+    const { title, status } = req.body;
+    const result = await pool.query(
+      'INSERT INTO tasks (title, status) VALUES ($1, $2) RETURNING *',
+      [title, status || 'pending']
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+app.put('/api/v1/tasks/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, status } = req.body;
+    const result = await pool.query(
+      'UPDATE tasks SET title = $1, status = $2 WHERE id = $3 RETURNING *',
+      [title, status, id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
 });
