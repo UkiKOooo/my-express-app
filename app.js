@@ -3,14 +3,8 @@ const cors = require('cors');
 const app = express();
 
 app.use(cors()); 
-app.use(express.json());c
-  
-onst express = require('express');
-const { Pool } = require('pg');
-require('dotenv').config();
-
-const app = express();
 app.use(express.json());
+  
 
 
 const pool = new Pool({
