@@ -2,19 +2,30 @@ const express = require('express');
 const cors = require('cors'); 
 const { Pool } = require('pg'); 
 require('dotenv').config();
-
+ 
 const app = express();
-
 app.use(cors()); 
 app.use(express.json());
-
+ 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
     rejectUnauthorized: false
   }
 });
-
+ 
+async function initDB() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS tasks (
+      id SERIAL PRIMARY KEY,
+      title TEXT NOT NULL,
+      status TEXT DEFAULT 'pending'
+    );
+  `);
+  console.log('Table ready');
+}
+initDB();
+ 
 app.get('/api/v1/tasks', async (req, res) => {
   try {
     const { status } = req.query;
@@ -30,8 +41,7 @@ app.get('/api/v1/tasks', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
-
+ 
 app.post('/api/v1/tasks', async (req, res) => {
   try {
     const { title, status } = req.body;
@@ -44,8 +54,7 @@ app.post('/api/v1/tasks', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
-
+ 
 app.put('/api/v1/tasks/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -62,7 +71,7 @@ app.put('/api/v1/tasks/:id', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
+ 
 app.get('/api/v1/tasks/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -78,7 +87,7 @@ app.get('/api/v1/tasks/:id', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
+ 
 app.delete('/api/v1/tasks/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -94,7 +103,7 @@ app.delete('/api/v1/tasks/:id', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
+ 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
